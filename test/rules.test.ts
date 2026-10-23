@@ -67,6 +67,53 @@ test("reference markup: every alternative is covered individually and masked tok
 });
 
 
+// Round 3 plan item 17: invisible characters, an idea from everwrite's scripts/tells.py (MIT); our code.
+test("invisible-character: each invisible character in Latin-script prose is one finding, named, and --fix deletes it", () => {
+  const found = (text: string) => lintText("invisible.md", text).findings.filter((f) => f.rule === "invisible-character");
+  for (const [ch, name] of [
+    ["\u200b", "U+200B ZERO WIDTH SPACE"],
+    ["\u200c", "U+200C ZERO WIDTH NON-JOINER"],
+    ["\u200d", "U+200D ZERO WIDTH JOINER"],
+    ["\u2060", "U+2060 WORD JOINER"],
+    ["\ufeff", "U+FEFF ZERO WIDTH NO-BREAK SPACE"],
+    ["\u200e", "U+200E LEFT-TO-RIGHT MARK"],
+    ["\u202e", "U+202E BIDIRECTIONAL CONTROL"],
+    ["\u2066", "U+2066 BIDIRECTIONAL CONTROL"],
+    ["\u180e", "U+180E MONGOLIAN VOWEL SEPARATOR"],
+    ["\u2062", "U+2062 INVISIBLE OPERATOR"],
+    ["\u{e0041}", "U+E0041 TAG CHARACTER"],
+  ] as const) {
+    const f = found(`The cache${ch} is warm.`);
+    assert.equal(f.length, 1, name);
+    assert.equal(f[0]!.message, `${name}: invisible character; delete it`);
+    assert.equal(f[0]!.severity, "warning");
+    assert.equal(fixText("invisible.md", `The cache${ch} is warm.`).text, "The cache is warm.", name);
+  }
+  // Between two word characters the run is reported without a fix: deleting it would join two words.
+  assert.equal(found("zero\u200bwidth")[0]!.fix, undefined);
+  // A run is one finding, each name once.
+  assert.equal(found("a\u200b\u200b\u200dz").length, 1);
+  assert.equal(found("a\u200b\u200b\u200dz")[0]!.message, "U+200B ZERO WIDTH SPACE, U+200D ZERO WIDTH JOINER: invisible character; delete it");
+});
+
+test("invisible-character: joined emoji, flags, other scripts, a leading byte order mark, right-to-left lines and code are left alone", () => {
+  const found = (text: string) => lintText("invisible.md", text).findings.filter((f) => f.rule === "invisible-character");
+  for (const text of [
+    "The family \u{1F468}\u200d\u{1F469}\u200d\u{1F467} emoji.",
+    "A rainbow flag \u{1F3F3}\uFE0F\u200d\u{1F308} here.",
+    "The flag \u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F} of Scotland.",
+    "Thai \u0E20\u0E32\u0E29\u0E32\u200b\u0E44\u0E17\u0E22 splits words this way.",
+    "Persian \u0645\u06CC\u200c\u062E\u0648\u0627\u0647\u0645 uses a non-joiner.",
+    "Hindi \u0915\u094D\u200d\u0937 uses a joiner.",
+    "\ufeffThe file starts with a byte order mark.",
+    "Hebrew \u05E2\u05D1\u05E8\u05D9\u05EA \u200f mixed with English.",
+    "Inline `a\u200bb` code is masked.",
+    "A soft\u00adhyphen is not reported.",
+  ]) assert.deepEqual(found(text), [], JSON.stringify(text));
+  // A direction mark on a line without right-to-left text is reported.
+  assert.equal(found("English only \u200f here.").length, 1);
+});
+
 test("masking: patterns inside code blocks, inline code, URLs and front matter are not flagged", () => {
   const r = lintText("s.md", sloppy);
   const codeLines = new Set<number>();
@@ -78,13 +125,13 @@ test("masking: patterns inside code blocks, inline code, URLs and front matter a
   assert.ok(!r.findings.some((f) => f.rule === "announcing" && f.excerpt.includes("is code")));
 });
 
-test("dash rule: fixes between words to a comma, drops after punctuation, leaves ranges and line-opening dashes", () => {
-  const r = fixText("d.md", "Rates rose — sharply — in May. 2019–2021 was flat.\n— A line that opens with a dash\nThe end—\n");
-  assert.equal(r.text, "Rates rose, sharply, in May. 2019–2021 was flat.\n— A line that opens with a dash\nThe end.\n");
-  const left = r.result.findings.filter((f) => f.rule === "dash");
-  assert.equal(left.length, 1, JSON.stringify(left));
-  assert.equal(left[0]?.line, 2);
-  assert.equal(left[0]?.fix, undefined);
+test("dash rule: fixes between words to a comma, drops after punctuation, leaves ranges and dialogue lines", () => {
+  // A paragraph-first line that opens with a dash and is plausibly not English (here the Spanish
+  // raya before ¿) is dialogue, and the englishOnly dash rule exempts the whole line (see
+  // dialogueLines in src/rules/dashes.ts). An English line that opens with a dash is not.
+  const r = fixText("d.md", "Rates rose — sharply — in May. 2019–2021 was flat.\n\n— ¿Qué pasa con esta línea?\nThe end—\n");
+  assert.equal(r.text, "Rates rose, sharply, in May. 2019–2021 was flat.\n\n— ¿Qué pasa con esta línea?\nThe end.\n");
+  assert.deepEqual(r.result.findings.filter((f) => f.rule === "dash"), []);
 });
 
 test("word count: a word is a word in every script", () => {
@@ -130,9 +177,9 @@ test("a segmenter without the dictionary for a script falls back to the estimate
 });
 
 test("language packs are off unless asked for, and a pack has to be well formed", () => {
-  // No pack ships yet; issue #1 tracks the first. The mechanism is tested with a stand-in so
-  // the infrastructure is proven without inventing rules for a language nobody sourced.
-  assert.deepEqual(Object.keys(languageRules), []);
+  // The French pack is the only one registered (test/fr-pack.test.mjs). The mechanism is tested
+  // with a stand-in so the infrastructure is proven without inventing rules for another language.
+  assert.deepEqual(Object.keys(languageRules), ["fr"]);
   assert.deepEqual(rulesFor(), rules, "English is the whole set when nothing is asked for");
   assert.throws(() => rulesFor(["zz"]), /no rule pack for "zz"/);
 
@@ -200,6 +247,47 @@ test("curly quotes: a consistently typographic document is left alone, a mixed o
   const mixed = "The flag is \"--fix\" and it's safe. The model said \u201Cthis is fine\u201D about it.";
   const found = lintText("README.md", mixed).findings.filter((f) => f.rule === "curly-quotes");
   assert.equal(found.length, 2, JSON.stringify(found));
+});
+
+test("curly quotes: the closing mark of a German low quotation is typography, so it is not flagged and --fix leaves it", () => {
+  const german = "Der Support schrieb: \u201EWir melden uns bald\u201C.\n\nIt said \"hello\" and it's fine.\n";
+  assert.deepEqual(lintText("g.md", german).findings.filter((f) => f.rule === "curly-quotes"), []);
+  assert.equal(fixText("g.md", german).text, german);
+  // The closing mark may be the right double quote too, and a span may wrap over a line.
+  const wrapped = "Er sagte: \u201EWir melden uns\nbald\u201D.\n\nShe said \"hello\".\n";
+  assert.deepEqual(lintText("w.md", wrapped).findings.filter((f) => f.rule === "curly-quotes"), []);
+  // A curly pair outside any low quotation in the same file is still a pasted mark.
+  const mixed = german + "The model said \u201Cthis is fine\u201D about it.\n";
+  assert.equal(lintText("m.md", mixed).findings.filter((f) => f.rule === "curly-quotes").length, 2);
+  // An unclosed low quotation never reaches the next paragraph.
+  const unclosed = "Er sagte: \u201EWir melden uns\n\nShe said \"a\" and \u201Cb\u201D.\n";
+  assert.equal(lintText("u.md", unclosed).findings.filter((f) => f.rule === "curly-quotes").length, 2);
+});
+
+test("dash: a paragraph or a quoted span of 8+ words with no English function word and a non-ASCII letter is foreign text, not an English dash", () => {
+  const front = "---\nlang: en\n---\n\n";
+  const turkish = 'Müdür toplantıda şunu söyledi: "Çeviri bitmeden yayına çıkmayız – söz veriyorum."';
+  const dashes = (t: string) => lintText("a.md", t).findings.filter((f) => f.rule === "dash");
+  assert.deepEqual(dashes(`${front}${turkish}\n`), [], "the h14 Turkish sentence");
+  assert.equal(fixText("a.md", `${front}${turkish}\n`).text, `${front}${turkish}\n`, "--fix leaves it");
+  // A foreign quotation inside an English paragraph is exempt on its own.
+  const inside = 'The manager said "Çeviri bitmeden yayına çıkmayız – söz veriyorum bugün artık" in the meeting.';
+  assert.deepEqual(dashes(`${front}${inside}\n`), []);
+  // English with a model-style dash still fires, quoted or not.
+  assert.equal(dashes(`${front}The tool says "this is a robust solution \u2014 and it is fast to use for everyone".\n`).length, 1);
+  assert.equal(dashes(`${front}This is a robust solution \u2014 and it is fast.\n`).length, 1);
+  // An English quoted sentence with an accented word and English function words still fires.
+  assert.equal(dashes(`${front}She wrote "the café was open late \u2014 and we stayed there until it closed".\n`).length, 1);
+  // Fewer than 8 tokens is not enough to call anything foreign.
+  assert.equal(dashes(`${front}Çeviri bitmeden çıkmayız \u2013 söz.\n`).length, 1);
+  // No non-ASCII letter: not exempt.
+  assert.equal(dashes(`${front}Cevirisi bitmeden yayina cikmayiz boyle yazmak \u2013 soz veriyorum bugun.\n`).length, 1);
+});
+
+test("the h14 golden grades A once the Turkish quotation is read as foreign text", () => {
+  const text = readFileSync(join(import.meta.dirname, "..", "..", "bench", "head-to-head", "golden", "h14", "guide.md"), "utf8");
+  const r = lintText("guide.md", text);
+  assert.equal(r.grade, "A", JSON.stringify(r.findings));
 });
 
 test("not-x-but-y catches the contracted forms, which are the common ones", () => {
@@ -346,7 +434,7 @@ test("a declared language stands the English typography rule down", () => {
 
   const declared = lintText("README.md", french, { language: "fr" });
   assert.deepEqual(declared.findings, []);
-  assert.deepEqual(declared.stoodDown, ["dash"]);
+  assert.deepEqual(declared.stoodDown, ["dash", "title-case-heading"]);
 
   // English is the default and every English tag keeps the rule on.
   for (const tag of ["en", "en-GB", "EN_us"]) {

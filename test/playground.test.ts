@@ -48,18 +48,26 @@ test("the assembled page carries the engine and nothing that needs Node", () => 
     const files = walk(site);
     assert.deepEqual(files, [
       "config-export.js",
+      "engine/compare.js",
       "engine/doc.js",
+      "engine/frontmatter.js",
       "engine/index.js",
+      "engine/lang.js",
       "engine/meta.js",
       "engine/rules/constructions.js",
       "engine/rules/dashes.js",
       "engine/rules/formatting.js",
+      "engine/rules/fr.js",
       "engine/rules/reference-markup.js",
       "engine/rules/residue.js",
       "engine/rules/vocabulary.js",
+      "engine/units.js",
       "index.html",
+      "llms-full.txt",
+      "llms.txt",
       "playground.js",
       "samples.js",
+      "sitemap.xml",
     ]);
     // The three modules that would break the page: cli.js pulls node:child_process, node:fs,
     // node:path and node:url; glob.js and history.js pull node:fs and node:child_process.
@@ -133,7 +141,7 @@ test("the page states the version and rule set it is actually running", async ()
     const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string };
     assert.equal(meta.VERSION, pkg.version, "the page would advertise a version it is not running");
     const engine = await import(pathToFileURL(join(site, "engine", "index.js")).href);
-    assert.equal(engine.rules.length, 21);
+    assert.equal(engine.rules.length, 22);
     // Every rule the page can show a panel for carries the material that panel needs.
     for (const r of engine.rules) {
       assert.ok(r.why && r.source && r.ignoreWhen && r.example?.before && r.example?.after, `${r.id} is missing --explain material`);
@@ -224,7 +232,7 @@ test("the build refuses a module that needs Node, and one outside the allowlist"
   // matches source text, so without this the patch found nothing and the guard went unwatched
   // on one of the three operating systems the suite runs on.
   const script = readFileSync(BUILD, "utf8").replace(/\r\n/g, "\n");
-  const allowlistEnd = `  "rules/formatting.js",\n];`;
+  const allowlistEnd = `  "rules/fr.js",\n];`;
   assert.ok(script.includes(allowlistEnd), "the ENGINE allowlist is not in the shape this test patches");
 
   /** A throwaway tree that looks enough like the repository for the build script to run in it. */
@@ -258,7 +266,7 @@ test("the build refuses a module that needs Node, and one outside the allowlist"
   }
 
   // And with history.js allowlisted as well, the walk reaches its node: import and still refuses.
-  const nodeOnly = scaffold(script.replace(allowlistEnd, `  "rules/formatting.js",\n  "history.js",\n];`), true);
+  const nodeOnly = scaffold(script.replace(allowlistEnd, `  "rules/fr.js",\n  "history.js",\n];`), true);
   try {
     assert.equal(nodeOnly.status, 1, `a node: import should fail the build:\n${nodeOnly.stdout}\n${nodeOnly.stderr}`);
     assert.match(nodeOnly.stderr, /imports "node:child_process", which a browser cannot resolve/);
@@ -267,7 +275,7 @@ test("the build refuses a module that needs Node, and one outside the allowlist"
   }
 
   // A file copied that nothing imports is also refused, so the allowlist cannot rot quietly.
-  const unused = scaffold(script.replace(allowlistEnd, `  "rules/formatting.js",\n  "history.js",\n];`), false);
+  const unused = scaffold(script.replace(allowlistEnd, `  "rules/fr.js",\n  "history.js",\n];`), false);
   try {
     assert.equal(unused.status, 1, `an unreachable allowlist entry should fail the build:\n${unused.stdout}\n${unused.stderr}`);
     assert.match(unused.stderr, /copied but never imported: history\.js/);

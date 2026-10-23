@@ -36,6 +36,10 @@ export const titleCase: Rule = {
   },
   ignoreWhen:
     "The project's style guide asks for title case; switch the rule off once in .slop.json.",
+  // Title case is an English convention. German capitalises every noun, so "Ein Login. Alle
+  // Quellen." reads as Title Case there and is ordinary sentence case (found by the Task 20
+  // probe of the h17 German fixture, which no heading-bearing corpus had covered before).
+  englishOnly: true,
   check(doc) {
     const out: Finding[] = [];
     for (const m of doc.masked.matchAll(/^#{1,6}[ \t]+([^\n]+)$/gm)) {
@@ -100,9 +104,18 @@ export const curlyQuotes: Rule = {
     const findings: Finding[] = [];
     if (/"/.test(doc.masked)) findings.push(...scan(doc, curlyQuotes, /[\u201C\u201D]/g, () => "curly quote among straight ones; the file mixes both", () => '"'));
     if (/'/.test(doc.masked)) findings.push(...scan(doc, curlyQuotes, /[\u2018\u2019]/g, () => "curly apostrophe among straight ones; the file mixes both", () => "'"));
-    return findings.sort((a, b) => a.line - b.line || a.column - b.column);
+    // The closing mark of a German low quotation („Wir melden uns bald“) is a curly mark by
+    // design, so it is neither a pasted mark nor safe to turn into a straight one. A span stays
+    // inside one paragraph, so an unclosed „ never reaches the next one.
+    const low: Array<[number, number]> = [];
+    for (const m of doc.masked.matchAll(LOW_QUOTE)) low.push([m.index!, m.index! + m[0].length]);
+    const inLowQuote = (f: Finding) => f.fix !== undefined && low.some(([from, to]) => f.fix!.start >= from && f.fix!.start < to);
+    return findings.filter((f) => !inLowQuote(f)).sort((a, b) => a.line - b.line || a.column - b.column);
   },
 };
+
+/** A German low quotation: „ up to its closing “ or ”, without crossing a blank line. */
+const LOW_QUOTE = /\u201E[^\u201E\u201C\u201D\n]*(?:\n(?![ \t]*\r?\n)[^\u201E\u201C\u201D\n]*)*[\u201C\u201D]/g;
 
 /** Too many hyphenated word pairs per hundred words. */
 export const hyphenDensity: Rule = {
@@ -132,5 +145,81 @@ export const hyphenDensity: Rule = {
     const first = matches[0]!;
     const { line, column } = position(doc, first.index!);
     return [{ rule: hyphenDensity.id, severity: hyphenDensity.severity, line, column, excerpt: `${matches.length} hyphenated pairs in ${doc.words} words`, message: `${per100.toFixed(1)} hyphenated compounds per 100 words; drop the hyphen after the noun ("the report is high quality")` }];
+  },
+};
+
+/** Names of the invisible characters the rule reports, by code point. */
+const INVISIBLE_NAMES: Record<number, string> = {
+  0x180e: "MONGOLIAN VOWEL SEPARATOR",
+  0x200b: "ZERO WIDTH SPACE",
+  0x200c: "ZERO WIDTH NON-JOINER",
+  0x200d: "ZERO WIDTH JOINER",
+  0x200e: "LEFT-TO-RIGHT MARK",
+  0x200f: "RIGHT-TO-LEFT MARK",
+  0x2060: "WORD JOINER",
+  0xfeff: "ZERO WIDTH NO-BREAK SPACE",
+};
+const invisibleName = (cp: number) =>
+  INVISIBLE_NAMES[cp] ?? (cp >= 0xe0000 ? "TAG CHARACTER" : cp >= 0x2061 && cp <= 0x2064 ? "INVISIBLE OPERATOR" : "BIDIRECTIONAL CONTROL");
+const hex = (cp: number) => `U+${cp.toString(16).toUpperCase().padStart(4, "0")}`;
+/** Right-to-left scripts, whose text uses direction marks and controls on purpose. */
+const RTL = /[\p{Script=Hebrew}\p{Script=Arabic}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}]/u;
+const DIRECTIONAL = /[‎‏‪-‮⁦-⁩]/u;
+
+/**
+ * Whether the run sits where an invisible character does a job: next to an emoji (a joined emoji
+ * sequence or a subdivision flag), next to a letter of a script other than Latin (Thai, Khmer,
+ * Indic and Persian text join or break words with them), at the very start of the file (a byte
+ * order mark), or, for a direction mark or control, on a line with right-to-left text.
+ */
+function invisibleHasAJob(text: string, start: number, end: number): boolean {
+  if (start === 0) return true;
+  const prev = String.fromCodePoint(text.codePointAt(start - 1 >= 1 && /[\uDC00-\uDFFF]/.test(text[start - 1]!) ? start - 2 : start - 1) ?? 32);
+  const next = String.fromCodePoint(text.codePointAt(end) ?? 32);
+  const emojiPart = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}️⃣]/u;
+  if (emojiPart.test(prev) || emojiPart.test(next)) return true;
+  const otherScript = (c: string) => /[\p{L}\p{M}]/u.test(c) && !/\p{Script=Latin}/u.test(c);
+  if (otherScript(prev) || otherScript(next)) return true;
+  const run = text.slice(start, end);
+  if (DIRECTIONAL.test(run)) {
+    const lineStart = text.lastIndexOf("\n", start - 1) + 1;
+    const lineEnd = text.indexOf("\n", end);
+    if (RTL.test(text.slice(lineStart, lineEnd === -1 ? undefined : lineEnd))) return true;
+  }
+  return false;
+}
+
+/** Invisible characters in Latin-script prose: zero-width spaces and joiners, direction controls, tag characters. */
+export const invisibleCharacter: Rule = {
+  id: "invisible-character",
+  title: "Invisible character",
+  severity: "warning",
+  source: "house (idea from the invisible-character pass of everwrite's scripts/tells.py, MIT; our code)",
+  why:
+    "Text copied out of a chat interface or a web page can carry characters that render as nothing: zero-width spaces and joiners, direction controls, Unicode tag characters. They break search, diffs and spell checks, and a reader cannot see them to remove them.",
+  example: {
+    before: "The cache​ is warm.",
+    after: "The cache is warm.",
+  },
+  ignoreWhen:
+    "The character does a job the rule cannot see, such as a zero-width joiner inside a ligature on purpose. Joined emoji, flags, text in a script other than Latin, a byte order mark at the start of the file, and direction marks on a line with right-to-left text are already left alone. The soft hyphen (U+00AD) is not reported: German and Dutch typesetting uses it.",
+  check(doc) {
+    return scan(
+      doc,
+      invisibleCharacter,
+      /[᠎​-‏‪-‮⁠-⁤⁦-⁩﻿\u{e0000}-\u{e007f}]+/gu,
+      (m) => `${[...m[0]].map((c) => `${hex(c.codePointAt(0)!)} ${invisibleName(c.codePointAt(0)!)}`).filter((v, i, a) => a.indexOf(v) === i).join(", ")}: invisible character; delete it`,
+      () => "",
+    )
+      .filter((f) => !invisibleHasAJob(doc.masked, f.fix!.start, f.fix!.end))
+      .map((f) => {
+        // Between two word characters the run splits what a reader sees as one word; deleting it would
+        // join two tokens a tool reads as separate words, so that case is reported without a fix.
+        const word = /[\p{L}\p{N}\p{M}]/u;
+        const prev = doc.text[f.fix!.start - 1] ?? "";
+        const next = doc.text[f.fix!.end] ?? "";
+        if (word.test(prev) && word.test(next)) delete f.fix;
+        return f;
+      });
   },
 };

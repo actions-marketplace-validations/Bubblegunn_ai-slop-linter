@@ -1,0 +1,54 @@
+# English first-tier tells for `ai-slop-linter --verify`. One entry per line:
+# a case-insensitive phrase, or a regular expression written as `re:<pattern>`.
+# Mirrors the "Act on one sighting" tier of en.md. Keep precision high: no bare common words.
+re:\blet (?:me|us) know\b
+# Hedge about missing information: the text reports that a fact is not out there instead of stating one.
+re:\bnot (?:publicly|widely|readily) (?:available|documented|disclosed|accessible)\b
+re:\bremains? (?:undisclosed|undocumented|unpublished)\b
+# False agency: a tool, system or AI that decides or knows by itself.
+re:(?<![\w-])(?:tool|software|platform|ai|assistant)\s+(?:decides|chooses)(?:\s+\w+){0,4}\s+(?:for itself|on its own|by itself)\b
+re:(?<![\w-])(?:tool|software|platform|ai|assistant)\s+(?:knows|understands)\s+(?:exactly\s+)?what you\s+(?:need|want|mean)\b
+re:\bstreamlin(?:e|es|ed|ing)\b
+the uncomfortable truth is
+what most teams get wrong
+the part everyone misses
+re:that['’]s the real win
+re:\bthe best part:
+which is more important than it sounds
+re:\bthis matters because\b
+re:\bthat last part matters\b
+re:\bthe journey continues\b
+re:\bthat['’]s when i realized\b
+re:\bmarking a pivotal moment\b
+a turning point for
+reflects broader trends
+setting the stage for
+re:\bdespite these challenges\b
+re:\b(?:does|doing|do) the heavy lifting\b
+the numbers speak for themselves
+the data tells a story
+re:\bexperts (?:believe|agree)\b
+re:\bindustry observers note\b
+re:\bnestled in\b
+re:\ba must-see\b
+re:\bin this section we will\b
+# Hedge adverb: `hopefully` after a modal or opening a sentence.
+re:\b(?:should|will|can|could|would) hopefully\b
+re:(?<=^|\n[ \t]*|[.!?][ \t\n]+)hopefully,
+# Hedge about missing information and vague attribution (Wikipedia, Signs of AI writing: facts only).
+re:\b(?:while|although) (?:specific )?details (?:are|remain) (?:limited|scarce|sparse)\b
+re:\bbased on (?:the )?available (?:information|sources)\b
+re:\befforts are ongoing to\b
+re:\b(?:appears|seems) to have been (?:established|founded|created) sometime\b
+re:\b(?:experts argue|observers have cited|some critics argue)\b
+# Didactic disclaimer and announced lists.
+re:\bit(?:['’]s| is) (?:important|crucial) to note\b
+re:\bhere (?:are|is) (?:the )?(?:top )?(?:\d+|three|four|five|six|seven)\b
+re:\bkey (?:takeaways|highlights)\b
+re:\b(?:three|five|seven|\d+) (?:key )?things to know\b
+re:(?<=^|\n[ \t]*)(?:answer:[ \t]*)?here are (?:several|some|a few)\b[^\n]{0,80}:
+# Chatbot sign-offs.
+re:\bi hope this message finds you well\b
+re:\b(?:certainly|of course)!
+re:\byou['’]re absolutely right!
+re:\bwould you like me to\b
