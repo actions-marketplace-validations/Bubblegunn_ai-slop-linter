@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -10,10 +11,10 @@ import { prepare } from "../dist/src/doc.js";
 import { detectLanguage } from "../dist/src/lang.js";
 
 const CLI = "dist/src/cli.js";
-const REFERENCES = "skills/ai-slop-linter/references";
+const REFERENCES = "plugin/skills/ai-slop-linter/references";
 const catalog = (lang, text) => scanCatalog(prepare("a.md", text), lang).map((h) => h.phrase);
 const hedge = (lang, text) => scanHedge(prepare("a.md", text), lang).map((h) => h.phrase);
-const skill = readFileSync("skills/ai-slop-linter/SKILL.md", "utf8");
+const skill = readFileSync("plugin/skills/ai-slop-linter/SKILL.md", "utf8");
 
 const walk = (dir) => readdirSync(dir).flatMap((name) => {
   const path = join(dir, name);
@@ -26,7 +27,7 @@ const CLEAN = [
   ...walk("bench/head-to-head/golden"),
   ...walk("test/fixtures").filter((f) => !f.endsWith("sloppy.md")),
   "README.md", "README.tr.md", "CHANGELOG.md", "CONTRIBUTING.md", "docs/FAQ.md", "docs/LANGUAGES.md", "docs/SCORING.md",
-  "skills/ai-slop-linter/SKILL.md",
+  "plugin/skills/ai-slop-linter/SKILL.md",
 ].filter((f) => /\.(?:md|txt)$/.test(f));
 
 test("round 6: no catalog entry and no hedge check hits any clean or golden text in the repository", () => {
@@ -236,7 +237,7 @@ import { join as joinR } from "node:path";
 import { test as testR } from "node:test";
 import assertR from "node:assert/strict";
 
-const cliR = new URL("../dist/src/cli.js", import.meta.url).pathname;
+const cliR = fileURLToPath(new URL("../dist/src/cli.js", import.meta.url));
 function verifyR(before, after, extra = []) {
   const d = mkdtempR(joinR(tmpdirR(), "r6fix-"));
   writeR(joinR(d, "b.md"), before); writeR(joinR(d, "a.md"), after);

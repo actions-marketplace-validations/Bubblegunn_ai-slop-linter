@@ -2,13 +2,13 @@
   "name": "ai-slop-linter",
   "owner": {
     "name": "Efe Genc",
-    "url": "https://efe-genc-portfolio.vercel.app"
+    "url": "https://efegenc.me"
   },
   "description": "Linter for AI-sounding phrases and em dashes in commit messages, pull request descriptions and Markdown docs, packaged as a Claude Code skill.",
   "plugins": [
     {
       "name": "ai-slop-linter",
-      "source": "./",
+      "source": "./plugin",
       "description": "Lints prose for AI-sounding phrases and em dashes. Makes the agent check its commit messages, pull request descriptions and docs before it ships them.",
       "category": "writing",
       "keywords": ["ai-slop", "humanizer", "writing", "commits", "pull-requests", "em-dash"]

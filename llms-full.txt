@@ -18,6 +18,8 @@ npx ai-slop-linter README.md
 
 The recording is the unedited output of the build in this repository. The file it lints is a model-written sample from `bench/corpus`, not a real pull request. The command exits 1 when a file has an error-severity finding or a score above `--max-score` (default 10). Run on this README, the same command prints grade A.
 
+Benchmark: [round 8 result](#how-it-compares). Write-up: [Humanizer has about 60,000 stars. On 12 public tasks my linter plugin scored 2.67 higher](https://dev.to/efe_genc/humanizer-has-about-60000-stars-on-12-public-tasks-my-linter-plugin-scored-267-higher-2cdg).
+
 <p align="center">English | <a href="README.tr.md">Türkçe</a></p>
 
 <p align="center">
@@ -114,11 +116,15 @@ It also reads first-person words and claim words, which a rewrite can add withou
 
 A qualifier next to a number is part of the fact. When the rewrite keeps the number but drops `up to`, `at least`, `nearly`, `environ`, `bis zu`, `más de` or a word like them, or adds one, the comparison prints `lost   qualifier up to 3` or `added  qualifier over 300` and exits 1. A swap within one meaning (`roughly` for `around`, `over` for `more than`) is not reported. Every qualifier passed a stricter measurement than the words above: it flags none of the goldens, none of the 357 round 1 rewrites by other tools and none of 40 hand-written honest pairs ([`bench/COMPARE-QUALIFIERS.md`](bench/COMPARE-QUALIFIERS.md)). English `about` is not read: it flagged one honest rewrite.
 
-`--verify <before> <after>` is the single gate for a rewrite. On the `<after>` file it runs the lint errors, the same comparison as `--compare`, a scan of the stock phrases listed in `skills/ai-slop-linter/references/<lang>.tells.txt` for the text's language (`--language` sets it), and a `hedge` check: a modal verb with a hedge adverb within three words (`could potentially`, `may possibly`) or an evidential with a vague link (`seems to be related to`), in English, Portuguese, Spanish, French and German. A modal or `seems` alone is never a hit. Text in code, quotation marks and dialogue lines is skipped. It prints `line:col catalog <phrase>` for each phrase it finds, then `verify: ok` or `verify: N problem(s)`, and exits 1 on any problem. A language with no tells file gets no phrase hits. It also blocks a length collapse or growth (the rewrite outside 35 to 130 percent of the original, measured outside code blocks), and prints without blocking each original sentence that the rewrite dropped with no finding to explain it.
+`--verify <before> <after>` is the single gate for a rewrite. On the `<after>` file it runs the lint errors, the same comparison as `--compare`, a scan of the stock phrases listed in `plugin/skills/ai-slop-linter/references/<lang>.tells.txt` for the text's language (`--language` sets it), and a `hedge` check: a modal verb with a hedge adverb within three words (`could potentially`, `may possibly`) or an evidential with a vague link (`seems to be related to`), in English, Portuguese, Spanish, French and German. A modal or `seems` alone is never a hit. Text in code, quotation marks and dialogue lines is skipped. It prints `line:col catalog <phrase>` for each phrase it finds, then `verify: ok` or `verify: N problem(s)`, and exits 1 on any problem. A language with no tells file gets no phrase hits. It also blocks a length collapse or growth (the rewrite outside 35 to 130 percent of the original, measured outside code blocks), and prints without blocking each original sentence that the rewrite dropped with no finding to explain it.
 
 ## How it compares
 
 A head-to-head benchmark against six other Claude Code skills (Humanizer, unslop, everwrite, slopless, avoid-ai-writing and slop-cop; the first three also called by name) and Claude with no plugin, on editing tasks scored by scripted checks and blind grading. It is a result on those tasks, not a general ranking.
+
+Full write-up: [Humanizer has about 60,000 stars. On 12 public tasks my linter plugin scored 2.67 higher](https://dev.to/efe_genc/humanizer-has-about-60000-stars-on-12-public-tasks-my-linter-plugin-scored-267-higher-2cdg).
+
+![Benchmark round 8. Public set: ai-slop-linter 58.67 of 60, first of 11 arms. Held-out set: four arms at 29.67 or more of 30, a near-tie.](docs/benchmark-round8.png)
 
 <!-- h2h:start -->
 Round 8 (2026-10-23, Sonnet 5.5, 11 arms, 3 runs each): on the 12 public tasks this linter scored 58.67 of 60 and the best other arm (Humanizer, called by name) 56.00; the 95% bootstrap interval of the difference is [1.00, 4.33]. On 6 held-out tasks written by an author who had not read the code, four arms scored 29.67 or more of 30 (this linter 29.67, unslop 30.00), so that set does not separate them. Every cell, the departures from the frozen protocol and a recompute step are in bench/head-to-head/results/round8-final-2026-10-23/; the rounds and rulings are in docs/HEAD-TO-HEAD.md; the tasks, criteria and harness are public in bench/head-to-head/.
@@ -152,20 +158,31 @@ Some readers have learned these tells: the em dash, `not just X but Y`, `I hope 
 | VS Code extension | a `.vsix` built from `vscode/`, see [its README](vscode/README.md) | not yet on the Marketplace <!-- release-status --> |
 | Browser | [the playground](https://bubblegunn.github.io/ai-slop-linter/) | live |
 
+### A structural use of bold that is not a mini-heading
+
+A short CV-style role list can bold the role or linked company because that is the entity each row describes:
+
+```markdown
+- **Founder, [LILA](https://hellolila.app)** (Feb 2026 to present): a proactive personal AI product.
+- **Founding engineer, [Cendra](https://cendra.ai)** (Aug 2025 to Jul 2026): primary author of the frontend.
+```
+
+There is no dependable signal in the bold span alone that separates this structural use from a mini-heading. The `bold-label` rule therefore keeps its existing pattern rather than guessing from punctuation or list shape. If a legitimate role list is flagged, put `<!-- slop-ignore-next-line RULE -->` immediately before each affected item, or `<!-- slop-ignore RULE -->` before the section. Replace `RULE` with `bold-label` in the directive.
+
 ## What it looks like
 
-Real output on [`test/fixtures/sloppy.md`](test/fixtures/sloppy.md), a 282-word file
+Real output on [`test/fixtures/sloppy.md`](test/fixtures/sloppy.md), a 290-word file
 written to trip every rule once (first eleven of fifty-two findings):
 
 ```
-test/fixtures/sloppy.md  F (score 192.6, 282 words, 52 findings)
+test/fixtures/sloppy.md  F (score 187.2, 290 words, 52 findings)
      5:1   info    title-case-heading   Title Case heading; sentence case reads as written by a person
      7:1   warning announcing           "Let's dive into": make the point instead of announcing it
      7:26  error   dash                 em dash
      7:32  warning inflated             "is a testament to": say what happened; let the reader judge the importance
      7:37  warning ai-vocabulary        "testament": a word models reach for; use the plain one
      7:72  warning ai-vocabulary        "In today's fast-paced": a word models reach for; use the plain one
-     7:83  info    hyphen-density       7.4 hyphenated compounds per 100 words; drop the hyphen after the noun ("the report is high quality")
+     7:83  info    hyphen-density       7.2 hyphenated compounds per 100 words; drop the hyphen after the noun ("the report is high quality")
      7:115 warning inflated             "stands as a": say what happened; let the reader judge the importance
      7:127 warning inflated             "pivotal moment": say what happened; let the reader judge the importance
      7:127 warning ai-vocabulary        "pivotal": a word models reach for; use the plain one
@@ -253,7 +270,7 @@ To silence a finding you have judged wrong:
 
 ## Commit message rules
 
-`--commit`, `--commit-msg` and `--pr` also run these rules, which only a commit message or a pull request description gets. The phrase lists are adapted from [tbhb/vale-ai-tells](https://github.com/tbhb/vale-ai-tells) by Tony Burns (MIT). `bench/COMMIT-RULES.md` shows how each was measured on commits written before 2021.
+`--commit`, `--commit-msg` and `--pr` also run these rules, which only a commit message or a pull request description gets. The phrase lists are adapted from [tbhb/vale-ai-tells](https://github.com/tbhb/vale-ai-tells) by Tony Burns (MIT); `commit-procedural-assurance` comes from Wikipedia's Signs of AI writing page and was written by [@Nitjsefnie](https://github.com/Nitjsefnie) ([#75](https://github.com/Bubblegunn/ai-slop-linter/pull/75)). `bench/COMMIT-RULES.md` shows how each was measured on commits written before 2021.
 
 | rule | what it flags |
 |---|---|
@@ -262,6 +279,7 @@ To silence a finding you have judged wrong:
 | `commit-marketing` | claims such as "production ready" or "enterprise grade" |
 | `commit-trailing-justification` | a trailing clause that claims a benefit the diff has to show |
 | `commit-unquantified` | a speed claim with no number |
+| `commit-procedural-assurance` | a promise that the change kept something safe, such as "while preserving" or "without breaking", never the bare verbs |
 
 ## If you do not write in English
 
@@ -375,7 +393,7 @@ Pin the `-pre-commit` rev, not the plain release tag: it is the same release plu
 ```yaml
 repos:
 - repo: https://github.com/Bubblegunn/ai-slop-linter
-  rev: v0.1.10-pre-commit
+  rev: v0.2.0-pre-commit
   hooks: [{id: ai-slop-markdown}, {id: ai-slop-commit-msg}]
 ```
 
@@ -492,7 +510,7 @@ Or as a Claude Code plugin:
 /plugin install ai-slop-linter@ai-slop-linter
 ```
 
-The plugin also adds a `UserPromptSubmit` hook (`hooks/rewrite-prompt.sh`, POSIX `sh`, no network). When a prompt asks to rewrite, polish, proofread or humanize prose, in English or in French, Spanish, German, Turkish and a few other languages, it adds one line telling the agent to use the skill, to add no `we`, `our`, `I`, claim or fact the source lacks, to keep every number with its qualifier, to read the reference file for French, German or Spanish, and to run `--compare` until it exits 0; on any other prompt it prints nothing. It matches keywords, so it misses some phrasings: on prompts it was not tuned on it caught about half.
+The plugin also adds a `UserPromptSubmit` hook (`plugin/hooks/rewrite-prompt.sh`, POSIX `sh`, no network). When a prompt asks to rewrite, polish, proofread or humanize prose, in English or in French, Spanish, German, Turkish and a few other languages, it adds one line telling the agent to use the skill, to add no `we`, `our`, `I`, claim or fact the source lacks, to keep every number with its qualifier, to read the reference file for French, German or Spanish, and to run `--compare` until it exits 0; on any other prompt it prints nothing. It matches keywords, so it misses some phrasings: on prompts it was not tuned on it caught about half.
 
 ## From code
 
@@ -501,12 +519,14 @@ import { lintText, fixText } from "ai-slop-linter";
 
 const r = lintText("post.md", text);
 r.grade;              // "A" .. "F"
-r.findings[0];        // { rule, severity, line, column, excerpt, message, fix? }
+r.findings[0];        // { rule, severity, line, column, endLine, endColumn, excerpt, message, fix? }
 
 const f = fixText("post.md", text);
 f.text;               // fixed text
 f.applied;            // number of fixes
 ```
+
+`endLine` and `endColumn` mark the first position after a finding (1-based, UTF-16 code units, end exclusive); the `github` format adds `endColumn` when the finding ends on its own line. The end positions were added by [@Nitjsefnie](https://github.com/Nitjsefnie) ([#76](https://github.com/Bubblegunn/ai-slop-linter/pull/76)).
 
 ## Measured on a fixed corpus
 
@@ -692,7 +712,7 @@ npx --yes ai-slop-linter --mcp
 | `compare_facts` | `before` and `after` (two texts), and optionally `language` | the facts the rewrite lost or added: numbers, versions, dates, urls, issue ids, quotations, code and names, first-person words (kind `person`) the rewrite added or dropped, claim words (kind `claim`) it added, an approximator or bound next to a number (kind `qualifier`, such as `up to 3`) that it dropped or added, and how many facts were kept. Set `language` for a text under about 25 words or in Turkish, which detection cannot tell |
 | `explain_rule` | `rule` | why the rule exists, an example that trips it, a rewrite, and when to ignore it |
 
-A finding has `rule`, `severity`, `line`, `column`, `excerpt`, `message` and `fixable`. A fixable finding also carries `fix`, the character range (`start`, `end`, in UTF-16 code units) and the `replacement`, so the agent can apply it without guessing. The result also has `score` (weighted findings per 1,000 words), `grade` (null under 50 words) and `errors`.
+A finding has `rule`, `severity`, `line`, `column`, `endLine`, `endColumn`, `excerpt`, `message` and `fixable`. A fixable finding also carries `fix`, the character range (`start`, `end`, in UTF-16 code units) and the `replacement`, so the agent can apply it without guessing. The result also has `score` (weighted findings per 1,000 words), `grade` (null under 50 words) and `errors`.
 
 `explain_rule`, `only` and `ignore` accept the ids of the language pack rules (`fr/closer`) as well as the English ones.
 
@@ -1126,6 +1146,7 @@ Hits are messages with at least one finding, listed per source in the order djan
 | `commit-trailing-justification` | 70 of 70 | 0 / 0 | 0 / 0 | 1 of 4 | 1 of 70 | adopted |
 | `commit-test-enumeration` | regex | 0 / 1 | 0 / 0 | 0 of 4 | n/a | not adopted: matched a human commit message in the tuning sample, and a regular expression has no phrase to drop |
 | `commit-unquantified` | regex | 0 / 0 | 0 / 0 | 1 of 4 | n/a | adopted |
+| `commit-procedural-assurance` | regex | 0 / 0 | 0 / 0 | 0 of 4 | n/a | adopted |
 
 ## Phrases left out
 

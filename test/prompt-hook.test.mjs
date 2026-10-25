@@ -1,5 +1,5 @@
 // @ts-check
-// hooks/rewrite-prompt.sh is the plugin's UserPromptSubmit hook. It adds one line of context on prompts
+// plugin/hooks/rewrite-prompt.sh is the plugin's UserPromptSubmit hook. It adds one line of context on prompts
 // that ask to rewrite or edit prose, so the agent loads the skill, and prints nothing on any other prompt.
 // test/fixtures/prompt-hook.json holds the prompts; its _note gives the rate on unseen batches, which is
 // lower than the in-sample rate asserted here.
@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 const root = join(import.meta.dirname, "..");
-const script = join(root, "hooks", "rewrite-prompt.sh");
+const script = join(root, "plugin", "hooks", "rewrite-prompt.sh");
 const fixture = JSON.parse(readFileSync(join(root, "test", "fixtures", "prompt-hook.json"), "utf8"));
 
 /** @param {string} input */
@@ -75,7 +75,7 @@ test("the context line carries the guardrails: no added person or claim, numbers
   assert.match(lint.stdout, /0 findings/, lint.stdout + lint.stderr);
 });
 
-test("every prompt exits 0, and malformed input prints nothing and exits 0", () => {
+test("every prompt exits 0, and malformed input prints nothing and exits 0", { skip: process.platform === "win32" ? "the hook is a POSIX sh script; Windows bash warns about the null byte" : false }, () => {
   for (const p of [...fixture.related, ...fixture.unrelated]) assert.equal(run(p).status, 0, p);
   for (const input of ["", "not json", "{", '{"prompt":', '{"prompt":"polish this paragraph', '{"prompt":42}', "\u0000\u0001", '{"cwd":"/rewrite/this/paragraph"}']) {
     const r = runRaw(input);
@@ -101,7 +101,7 @@ test("the grep patterns hold no backslash escape: an escape such as \\t is undef
 });
 
 test("hooks.json registers the script through CLAUDE_PLUGIN_ROOT for UserPromptSubmit", () => {
-  const cfg = JSON.parse(readFileSync(join(root, "hooks", "hooks.json"), "utf8"));
+  const cfg = JSON.parse(readFileSync(join(root, "plugin", "hooks", "hooks.json"), "utf8"));
   const entries = cfg.hooks.UserPromptSubmit;
   assert.equal(entries.length, 1);
   const [h] = entries[0].hooks;
@@ -118,6 +118,6 @@ test("the script uses POSIX tools only: no network, no writes, no jq or node", (
   for (const bad of [/\bcurl\b/, /\bwget\b/, /\bjq\b/, /\bnode\b/, /\bpython/, /\bnc\b/, /\btee\b/, /\bmktemp\b/, /\bsed -i\b/, /\bcp\b/, /\bmv\b/]) assert.doesNotMatch(src, bad, String(bad));
   const redirects = src.match(/\d*>+\s*[^\s)]+/g) ?? [];
   assert.deepEqual(redirects.filter((r) => !/^2>\/dev\/null$/.test(r)), [], "the only redirect is 2>/dev/null");
-  assert.ok(statSync(script).mode & 0o111, "executable");
-  assert.deepEqual(readdirSync(join(root, "hooks")).sort(), ["hooks.json", "rewrite-prompt.sh"]);
+  if (process.platform !== "win32") assert.ok(statSync(script).mode & 0o111, "executable");
+  assert.deepEqual(readdirSync(join(root, "plugin", "hooks")).sort(), ["hooks.json", "rewrite-prompt.sh"]);
 });
